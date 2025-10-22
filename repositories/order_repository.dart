@@ -1,5 +1,5 @@
 // repositories/order_repository.dart
-import '../Order/order.dart'; // عدّل المسار: المجلد/الاسم عندك
+import '../models/Order.dart'; // عدّل المسار: المجلد/الاسم عندك
 
 abstract class OrderRepository {
   List<Order> getAll();
