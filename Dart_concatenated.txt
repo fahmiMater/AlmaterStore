@@ -1,0 +1,1372 @@
+
+/* ---- File: Category/Category.dart ---- */
+
+import '../Product/product.dart';
+
+class Category{
+  final int id;
+  final String name;
+List<Product> products = [];
+  Category({
+    required this.id,
+    required this.name,
+  });
+
+  @override
+  String toString() {
+    return 'Category(id: $id, name: $name)';  
+  }
+}
+
+
+/* ---- File: Category/CategoryService.dart ---- */
+
+import 'Category.dart';
+import '../core/app_response.dart';
+
+class Categoryservice {
+  final List<Category> categories = [];
+
+  AppResponse<Category> addCategory(int id, String name) {
+    final exists = categories.any((category) => category.id == id);
+    if (exists) {
+      return AppResponse.failure(
+        'Category with id $id already exists.',
+        code: ErrorCode.alreadyExists,
+      );
+    }
+
+    final category = Category(id: id, name: name);
+    categories.add(category);
+    return AppResponse.success(
+      category,
+      message: 'Category $name created.',
+    );
+  }
+
+  AppResponse<List<Category>> getallCategories() {
+    return AppResponse.success(
+      List<Category>.unmodifiable(categories),
+      message: 'Fetched ${categories.length} categories.',
+    );
+  }
+
+  AppResponse<Category> deleteCategory(int categoryId) {
+    final index = categories.indexWhere((category) => category.id == categoryId);
+    if (index == -1) {
+      return AppResponse.failure(
+        'Category with id $categoryId not found.',
+        code: ErrorCode.notFound,
+      );
+    }
+
+    final removed = categories.removeAt(index);
+    return AppResponse.success(
+      removed,
+      message: 'Category ${removed.name} removed.',
+    );
+  }
+
+  Future<AppResponse<Category>> getCategoryDetails(int categoryId) async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    Category? category;
+    for (final element in categories) {
+      if (element.id == categoryId) {
+        category = element;
+        break;
+      }
+    }
+
+    if (category == null) {
+      return AppResponse.failure(
+        'Category with id $categoryId not found.',
+        code: ErrorCode.notFound,
+      );
+    }
+
+    return AppResponse.success(
+      category,
+      message: 'Category details loaded.',
+    );
+  }
+
+  Future<AppResponse<Category>> updateCategory(
+    int categoryId,
+    Map<String, dynamic> categoryData,
+  ) async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    final index = categories.indexWhere((category) => category.id == categoryId);
+    if (index == -1) {
+      return AppResponse.failure(
+        'Category with id $categoryId not found.',
+        code: ErrorCode.notFound,
+      );
+    }
+
+    final newName = categoryData['name'] as String?;
+    if (newName == null || newName.trim().isEmpty) {
+      return AppResponse.failure(
+        'Category name is required.',
+        code: ErrorCode.invalidInput,
+      );
+    }
+
+    final original = categories[index];
+    final updated = Category(id: original.id, name: newName.trim());
+    updated.products = List.of(original.products);
+    categories[index] = updated;
+
+    return AppResponse.success(
+      updated,
+      message: 'Category ${updated.name} updated.',
+    );
+  }
+}
+
+
+
+/* ---- File: core/app_response.dart ---- */
+
+/// حالة العملية
+enum ResponseStatus { success, failure }
+
+/// كود خطأ اختياري لتوحيد الأنواع الشائعة
+enum ErrorCode {
+  notFound,
+  alreadyExists,
+  invalidInput,
+  conflict,
+  unknown,
+}
+
+/// ريسبونس عام قابل للتطبيق على أي نوع بيانات T
+class AppResponse<T> {
+  final ResponseStatus status;
+  final String message;
+  final T? data;
+  final ErrorCode? error;
+
+  const AppResponse._({
+    required this.status,
+    required this.message,
+    this.data,
+    this.error,
+  });
+
+  /// نجاح
+  factory AppResponse.success(T data, {String message = 'Success'}) {
+    return AppResponse._(
+      status: ResponseStatus.success,
+      message: message,
+      data: data,
+    );
+  }
+
+  /// فشل
+  factory AppResponse.failure(String message, {ErrorCode? code}) {
+    return AppResponse._(
+      status: ResponseStatus.failure,
+      message: message,
+      error: code ?? ErrorCode.unknown,
+    );
+  }
+
+  bool get isSuccess => status == ResponseStatus.success;
+
+  /// تحويل النتيجة (مفيد لسلاسل المعالجات)
+  AppResponse<R> map<R>(R Function(T value) convert) {
+    if (!isSuccess || data == null) {
+      return AppResponse.failure(message, code: error);
+    }
+    return AppResponse.success(convert(data as T), message: message);
+  }
+
+  @override
+  String toString() =>
+      'AppResponse(status: $status, message: $message, data: $data, error: $error)';
+}
+
+
+
+/* ---- File: main.dart ---- */
+
+import 'dart:io';
+
+import 'UI/Admin_UI.dart';
+import 'UI/UI_Consol.dart';
+
+import 'UI/User_UI.dart';
+import 'UI/Delivary_UI.dart';
+
+void main() {
+  final app = ConsoleApp();
+  app.printMenu();
+}
+class ConsoleApp extends UiConsole {
+  final UiConsole adminUi = AdminUi();
+  final UiConsole userUi = UserUi();
+  final UiConsole deliveryUi = DelivaryUi();  
+  
+  @override
+  printMenu() {
+    print('Welcome to AlmaterStore Console App');
+    while (true) {
+      
+      print('\nSelect your role:');
+      print('1) Admin');
+      print('2) User');
+      print('3) Delivery Man');
+      print('0) Exit');
+      final choice = prompt('Enter choice');
+      switch (choice) {
+        case '1':
+          stdout.write('you selsct 1'); // Clear console
+          adminUi.printMenu();
+          break;
+        case '2':
+          userUi.printMenu();
+          break;
+        case '3':
+          deliveryUi.printMenu();
+          break;
+        case '0':
+          print('Goodbye!');
+          return;
+        default:
+          print('Invalid option.');
+      }
+    }
+  }
+ 
+ 
+ 
+} 
+
+
+/* ---- File: Order/Order.dart ---- */
+
+import '../Product/product.dart';
+import '../User/User.dart';
+
+class Order {
+  final int id;
+  User? user;
+  final DateTime orderDate;
+  final List<Orderitem> items;
+  bool isDelivered;
+
+  Order({
+    required this.id,
+    this.user,
+    DateTime? orderDate,
+    List<Orderitem>? items,
+    this.isDelivered = false,
+  })  : orderDate = orderDate ?? DateTime.now(),
+        items = items ?? [];
+
+  double get total {
+    var sum = 0.0;
+    for (final item in items) {
+      sum += item.product.price * item.quantity;
+    }
+    return sum;
+  }
+
+  @override
+  String toString() {
+    final userName = user?.name ?? 'Unassigned';
+    return 'Order(id: $id, user: $userName, items: ${items.length}, total: $total, delivered: $isDelivered)';
+  }
+}
+
+class Orderitem {
+  final String id;
+  final Product product;
+  int quantity;
+  final Order order;
+
+  Orderitem({
+    required this.id,
+    required this.product,
+    required this.quantity,
+    required this.order,
+  });
+}
+
+
+
+/* ---- File: Order/OrderItemsServices.dart ---- */
+
+import '../core/app_response.dart';
+import 'Order.dart';
+
+
+class OrderItemsService {
+  final List<Orderitem> _orderItems = [];
+
+  /// Add an item: if the same (productId, orderId) exists, increase its quantity,
+  /// otherwise append a new item.
+  AppResponse<Orderitem> addOrderItem(Orderitem item) {
+    if (item.quantity <= 0) {
+      return AppResponse.failure(
+        'Quantity must be greater than zero.',
+        code: ErrorCode.invalidInput,
+      );
+    }
+
+    final idx = _orderItems.indexWhere(
+      (oi) => oi.product.id == item.product.id && oi.order.id == item.order.id,
+    );
+
+    if (idx >= 0) {
+      // Update existing item quantity
+      _orderItems[idx].quantity += item.quantity;
+      return AppResponse.success(
+        _orderItems[idx],
+        message:
+            'Updated ${item.product.title} quantity to ${_orderItems[idx].quantity}.',
+      );
+    }
+
+    // Add as new
+    _orderItems.add(item);
+    return AppResponse.success(
+      item,
+      message: 'Added ${item.product.title} to order ${item.order.id}.',
+    );
+  }
+
+  /// Read-only view of items to avoid external mutation.
+  AppResponse<List<Orderitem>> getOrderItems() {
+    return AppResponse.success(
+      List<Orderitem>.unmodifiable(_orderItems),
+      message: 'Fetched ${_orderItems.length} order items.',
+    );
+  }
+
+  /// Find an item; returns null if not found (null-safe).
+  AppResponse<Orderitem> getOrderItemById(String productId, int orderId) {
+    for (final item in _orderItems) {
+      if (item.product.id == productId && item.order.id == orderId) {
+        return AppResponse.success(item, message: 'Order item found.');
+      }
+    }
+    return AppResponse.failure(
+      'Item not found for product $productId in order $orderId.',
+      code: ErrorCode.notFound,
+    );
+  }
+
+  /// Update quantity if the item exists.
+  AppResponse<Orderitem> updateOrderItemQuantity(
+    String productId,
+    int orderId,
+    int newQuantity,
+  ) {
+    if (newQuantity <= 0) {
+      return AppResponse.failure(
+        'Quantity must be greater than zero.',
+        code: ErrorCode.invalidInput,
+      );
+    }
+
+    final response = getOrderItemById(productId, orderId);
+    if (!response.isSuccess || response.data == null) {
+      return response;
+    }
+
+    response.data!.quantity = newQuantity;
+    return AppResponse.success(
+      response.data!,
+      message: 'Quantity updated to $newQuantity.',
+    );
+  }
+
+  /// Remove an item; returns whether anything was removed.
+  AppResponse<bool> deleteOrderItem(String productId, int orderId) {
+    final response = getOrderItemById(productId, orderId);
+    if (!response.isSuccess || response.data == null) {
+      return AppResponse.failure(
+        response.message,
+        code: response.error ?? ErrorCode.notFound,
+      );
+    }
+
+    _orderItems.remove(response.data);
+    return AppResponse.success(
+      true,
+      message: 'Item removed from order $orderId.',
+    );
+  }
+}
+
+
+
+/* ---- File: Order/OrderServices.dart ---- */
+
+import '../core/app_response.dart';
+import 'Order.dart';
+
+
+class Orderservices {
+  final List<Order> orders = [];
+  Order? _currentOrder;
+
+  AppResponse<Order> addOrder(Order order) {
+    final exists = orders.any((element) => element.id == order.id);
+    if (exists) {
+      return AppResponse.failure(
+        'Order with id ${order.id} already exists.',
+        code: ErrorCode.conflict,
+      );
+    }
+
+    orders.add(order);
+    _currentOrder = order;
+    return AppResponse.success(order, message: 'Order ${order.id} added.');
+  }
+
+  AppResponse<List<Order>> getAllOrders() {
+    return AppResponse.success(
+      List<Order>.unmodifiable(orders),
+      message: 'Fetched ${orders.length} orders.',
+    );
+  }
+
+  AppResponse<Order> setCurrentOrder(Order order) {
+    final exists = orders.any((element) => element.id == order.id);
+    if (!exists) {
+      return AppResponse.failure(
+        'Order with id ${order.id} not tracked.',
+        code: ErrorCode.notFound,
+      );
+    }
+
+    _currentOrder = order;
+    return AppResponse.success(
+      order,
+      message: 'Current order set to ${order.id}.',
+    );
+  }
+
+  AppResponse<Order> getCurrentOrder() {
+    if (_currentOrder == null) {
+      return AppResponse.failure(
+        'No current order selected.',
+        code: ErrorCode.notFound,
+      );
+    }
+
+    return AppResponse.success(
+      _currentOrder!,
+      message: 'Current order retrieved.',
+    );
+  }
+
+  AppResponse<Order> findOrder(int orderId) {
+    Order? found;
+    for (final order in orders) {
+      if (order.id == orderId) {
+        found = order;
+        break;
+      }
+    }
+
+    if (found == null) {
+      return AppResponse.failure(
+        'Order with id $orderId not found.',
+        code: ErrorCode.notFound,
+      );
+    }
+
+    return AppResponse.success(found, message: 'Order $orderId found.');
+  }
+}
+
+
+
+/* ---- File: Product/product.dart ---- */
+
+import '../Category/Category.dart';
+
+class Product {
+  final String id;
+  final String title;
+  final String description;
+  final double price;
+  late Category category;
+
+  Product({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.price,
+  });
+
+  @override
+  String toString() {
+    return 'Product(id: $id, title: $title, description: $description, price: $price, category: $category)';
+  }
+}
+
+
+
+/* ---- File: Product/ProductService.dart ---- */
+
+import '../core/app_response.dart';
+import 'product.dart';
+
+class Productservice {
+  final List<Product> products = [];
+
+  AppResponse<Product> addProduct(Product product) {
+    final exists = products.any((element) => element.id == product.id);
+    if (exists) {
+      return AppResponse.failure(
+        'Product with id ${product.id} already exists.',
+        code: ErrorCode.alreadyExists,
+      );
+    }
+
+    final hasLink = product.category.products.any((p) => p.id == product.id);
+    if (!hasLink) {
+      product.category.products.add(product);
+    }
+    products.add(product);
+    return AppResponse.success(
+      product,
+      message: 'Product ${product.title} added.',
+    );
+  }
+
+  AppResponse<List<Product>> getallProducts() {
+    return AppResponse.success(
+      List<Product>.unmodifiable(products),
+      message: 'Fetched ${products.length} products.',
+    );
+  }
+
+  AppResponse<Product> deleteProduct(String productId) {
+    final index = products.indexWhere((product) => product.id == productId);
+    if (index == -1) {
+      return AppResponse.failure(
+        'Product with id $productId not found.',
+        code: ErrorCode.notFound,
+      );
+    }
+
+    final product = products.removeAt(index);
+    product.category.products.removeWhere((p) => p.id == product.id);
+    return AppResponse.success(
+      product,
+      message: 'Product ${product.title} removed.',
+    );
+  }
+
+  Future<AppResponse<Product>> getProductDetails(String productId) async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    Product? product;
+    for (final element in products) {
+      if (element.id == productId) {
+        product = element;
+        break;
+      }
+    }
+    if (product == null) {
+      return AppResponse.failure(
+        'Product with id $productId not found.',
+        code: ErrorCode.notFound,
+      );
+    }
+
+    return AppResponse.success(product, message: 'Product details loaded.');
+  }
+
+  Future<AppResponse<Product>> updateProduct(
+    String productId,
+    Map<String, dynamic> productData,
+  ) async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    final index = products.indexWhere((product) => product.id == productId);
+    if (index == -1) {
+      return AppResponse.failure(
+        'Product with id $productId not found.',
+        code: ErrorCode.notFound,
+      );
+    }
+
+    final current = products[index];
+    final title = (productData['title'] as String?) ?? current.title;
+    final description =
+        (productData['description'] as String?) ?? current.description;
+    final price = (productData['price'] as num?)?.toDouble() ?? current.price;
+
+    if (price <= 0) {
+      return AppResponse.failure(
+        'Price must be greater than zero.',
+        code: ErrorCode.invalidInput,
+      );
+    }
+
+    final updated = Product(
+      id: current.id,
+      title: title,
+      description: description,
+      price: price,
+    );
+    updated.category = current.category;
+    final idxInCategory =
+        current.category.products.indexWhere((product) => product.id == current.id);
+    if (idxInCategory >= 0) {
+      current.category.products[idxInCategory] = updated;
+    }
+    products[index] = updated;
+
+    return AppResponse.success(
+      updated,
+      message: 'Product ${updated.title} updated.',
+    );
+  }
+}
+
+
+
+/* ---- File: Responses/Response.dart ---- */
+
+class Response {
+  successful({String? message, data}) {
+    return {'status': 'success', 'message': message, 'data': data};
+  }
+  error(String message) {
+    return {'status': 'error', 'message': message};
+  }
+  
+}
+
+
+/* ---- File: UI/Admin_UI.dart ---- */
+
+
+
+import '../Category/Category.dart';
+import '../Category/CategoryService.dart';
+import '../Order/OrderItemsServices.dart';
+import '../Order/OrderServices.dart';
+import '../Product/ProductService.dart';
+import '../Product/product.dart';
+import '../User/UserService.dart';
+import 'UI_Consol.dart';
+import '../core/app_response.dart';
+
+class AdminUi extends UiConsole{
+
+  
+  final Categoryservice categoryService = Categoryservice();
+  final Productservice productService = Productservice();
+  final Userservice userService = Userservice();
+  final Orderservices orderService = Orderservices();
+  final OrderItemsService orderItemsService = OrderItemsService();
+  @override
+  printMenu() {
+   
+    while (true) {
+      print('\nAdmin Menu:');
+      print('1) Add category');
+      print('2) List categories');
+      print('3) Add product');
+      print('4) List products');
+      print('5) Delete product');
+      print('0) Back');
+      final choice = prompt('Enter choice');
+      switch (choice) {
+        case '1':
+       
+          _addCategory();
+          break;
+        case '2':
+          _listCategories();
+          break;
+        case '3':
+          _addProduct();
+          break;
+        case '4':
+          _listProducts();
+          break;
+        case '5':
+          _deleteProduct();
+          break;
+        case '0':
+          return;
+        default:
+          print('Invalid option.');
+      }
+    }
+  }
+  void _addCategory() {
+    final id = prompt('Category id');
+    final idValue = int.tryParse(id);
+    if (idValue == null) {
+      print('Id must be a number.');
+      return;
+    }
+
+    final name = prompt('Category name');
+    if (name.isEmpty) {
+      print('Name cannot be empty.');
+      return;
+    }
+
+    final response = categoryService.addCategory(idValue, name);
+    _printResponse(response);
+  }
+  void _listCategories() {
+    final response = categoryService.getallCategories();
+    if (!response.isSuccess) {
+      _printResponse(response);
+      return;
+    }
+
+    final categories = response.data ?? [];
+    if (categories.isEmpty) {
+      print('No categories found.');
+      return;
+    }
+
+    print('\nCategories:');
+    for (final category in categories) {
+      print(
+        '- ${category.id}: ${category.name} (Products: ${category.products.length})',
+      );
+    }
+  }
+
+  void _addProduct() {
+    final categoryResponse = categoryService.getallCategories();
+    if (!categoryResponse.isSuccess) {
+      _printResponse(categoryResponse);
+      return;
+    }
+    final categories = categoryResponse.data ?? [];
+    if (categories.isEmpty) {
+      print('Create a category before adding products.');
+      return;
+    }
+
+    final id = prompt('Product id');
+    if (id.isEmpty) {
+      print('Id cannot be empty.');
+      return;
+    }
+
+    final productsResponse = productService.getallProducts();
+    if (productsResponse.isSuccess) {
+      final exists =
+          (productsResponse.data ?? []).any((product) => product.id == id);
+      if (exists) {
+        print('Product with id $id already exists.');
+        return;
+      }
+    }
+
+    final title = prompt('Product title');
+    final description = prompt('Product description');
+    final priceStr = prompt('Product price');
+    final price = double.tryParse(priceStr);
+    if (price == null || price <= 0) {
+      print('Price must be a positive number.');
+      return;
+    }
+
+    _listCategories();
+    final categoryId = prompt('Assign to category id');
+    final categoryIdValue = int.tryParse(categoryId);
+    if (categoryIdValue == null) {
+      print('Category id must be a number.');
+      return;
+    }
+
+    Category? category;
+    for (final entry in categories) {
+      if (entry.id == categoryIdValue) {
+        category = entry;
+        break;
+      }
+    }
+
+    if (category == null) {
+      print('Category not found.');
+      return;
+    }
+
+    final product = Product(
+      id: id,
+      title: title,
+      description: description,
+      price: price,
+    );
+    product.category = category;
+
+    final response = productService.addProduct(product);
+    _printResponse(response);
+  }
+
+  void _listProducts() {
+    final response = productService.getallProducts();
+    if (!response.isSuccess) {
+      _printResponse(response);
+      return;
+    }
+
+    final products = response.data ?? [];
+    if (products.isEmpty) {
+      print('No products found.');
+      return;
+    }
+
+    print('\nProducts:');
+    for (final product in products) {
+      final categoryName = product.category.name;
+      print(
+        '- ${product.id}: ${product.title} (\$${product.price.toStringAsFixed(2)}) '
+        'Category: $categoryName',
+      );
+    }
+  }
+
+  void _deleteProduct() {
+    final id = prompt('Product id to delete');
+    if (id.isEmpty) {
+      print('Id cannot be empty.');
+      return;
+    }
+
+    final response = productService.deleteProduct(id);
+    _printResponse(response);
+  }
+
+  void _printResponse<T>(AppResponse<T> response) {
+    if (response.isSuccess) {
+      print(response.message);
+      return;
+    }
+
+    final code = response.error != null ? ' (${response.error})' : '';
+    print('Error$code: ${response.message}');
+  }
+}
+
+
+
+/* ---- File: UI/Delivary_UI.dart ---- */
+
+import '../Order/Order.dart';
+import 'UI_Consol.dart';
+
+
+import '../Category/CategoryService.dart';
+import '../Order/OrderItemsServices.dart';
+import '../Order/OrderServices.dart';
+import '../Product/ProductService.dart';
+
+import '../User/UserService.dart';
+
+
+class DelivaryUi extends UiConsole{
+
+    final Categoryservice categoryService = Categoryservice();
+  final Productservice productService = Productservice();
+  final Userservice userService = Userservice();
+  final Orderservices orderService = Orderservices();
+  final OrderItemsService orderItemsService = OrderItemsService();
+
+
+  @override
+  printMenu() {
+
+    while (true) {
+      print('\nDelivery Menu:');
+      print('1) View pending orders');
+      print('2) Mark order as delivered');
+      print('3) View all orders');
+      print('0) Back');
+      final choice = prompt('Enter choice');
+      switch (choice) {
+        case '1':
+          _listOrders(deliveredOnly: false);
+          break;
+        case '2':
+          _markOrderDelivered();
+          break;
+        case '3':
+          _listOrders();
+          break;
+        case '0':
+          return;
+        default:
+          print('Invalid option.');
+      }
+    }
+  }
+  
+  void _listOrders({bool? deliveredOnly}) {
+    if (orderService.orders.isEmpty) {
+      print('No orders available.');
+      return;
+    }
+    final orders = orderService.orders.where((order) {
+      if (deliveredOnly == null) {
+        return true;
+      }
+      return deliveredOnly ? order.isDelivered : !order.isDelivered;
+    }).toList();
+    if (orders.isEmpty) {
+      final label = deliveredOnly == true ? 'delivered' : 'pending';
+      print('No $label orders found.');
+      return;
+    }
+    for (final order in orders) {
+      print(
+        '\nOrder ${order.id} for ${order.user?.name ?? 'Unknown'} '
+        '- Total: \$${order.total.toStringAsFixed(2)} '
+        '- Delivered: ${order.isDelivered ? 'Yes' : 'No'}',
+      );
+      for (final item in order.items) {
+        print('  * ${item.product.title} x${item.quantity}');
+      }
+    }
+  }
+
+  
+  void _markOrderDelivered() {
+    if (orderService.orders.isEmpty) {
+      print('No orders available.');
+      return;
+    }
+    final orderIdStr = prompt('Enter order id to mark delivered');
+    final orderId = int.tryParse(orderIdStr);
+    if (orderId == null) {
+      print('Order id must be a number.');
+      return;
+    }
+    final order = _findOrder(orderId);
+    if (order == null) {
+      print('Order not found.');
+      return;
+    }
+    if (order.isDelivered) {
+      print('Order ${order.id} already marked delivered.');
+      return;
+    }
+    order.isDelivered = true;
+    print('Order ${order.id} marked as delivered.');
+  }
+
+  
+  Order? _findOrder(int orderId) {
+    for (final order in orderService.orders) {
+      if (order.id == orderId) {
+        return order;
+      }
+    }
+    return null;
+  }
+ 
+}
+
+
+/* ---- File: UI/UI_Consol.dart ---- */
+
+
+
+
+import 'dart:io';
+
+abstract class UiConsole {
+  
+  printMenu();
+  prompt(String label){
+     stdout.write('$label: ');
+    return stdin.readLineSync()?.trim() ?? '';
+  }
+}
+
+
+
+/* ---- File: UI/User_UI.dart ---- */
+
+import '../Order/Order.dart';
+import '../User/User.dart';
+import 'UI_Consol.dart';
+
+
+import '../Category/CategoryService.dart';
+import '../Order/OrderItemsServices.dart';
+import '../Order/OrderServices.dart';
+import '../Product/ProductService.dart';
+import '../Product/product.dart';
+import '../User/UserService.dart';
+
+import '../core/app_response.dart';
+
+class UserUi extends UiConsole{
+ 
+
+    
+  final Categoryservice categoryService = Categoryservice();
+  final Productservice productService = Productservice();
+  final Userservice userService = Userservice();
+  final Orderservices orderService = Orderservices();
+  final OrderItemsService orderItemsService = OrderItemsService();
+
+  int _nextOrderId = 1;
+
+  printMenu() {
+    
+    while (true) {
+      print('\nUser Menu:');
+      print('1) Register');
+      print('2) List users');
+      print('3) Browse products');
+      print('4) Place order');
+      print('5) View my orders');
+      print('0) Back');
+      final choice = prompt('Enter choice');
+      switch (choice) {
+        case '1':
+          _registerUser();
+          break;
+        case '2':
+          _listUsers();
+          break;
+        case '3':
+          _listProducts();
+          break;
+        case '4':
+          _placeOrder();
+          break;
+        case '5':
+          _viewUserOrders();
+          break;
+        case '0':
+          return;
+        default:
+          print('Invalid option.');
+      }
+    }
+  }
+   void _registerUser() {
+    final id = prompt('User id');
+    if (id.isEmpty) {
+      print('Id cannot be empty.');
+      return;
+    }
+    final exists = userService.users.any((u) => u.id == id);
+    if (exists) {
+      print('User with id $id already exists.');
+      return;
+    }
+    final name = prompt('Name');
+    final email = prompt('Email');
+    final password = prompt('Password');
+    userService.addUser(
+      User(id: id, name: name, email: email, password: password),
+    );
+    print('User $name registered.');
+  }
+  
+  void _listUsers() {
+    if (userService.users.isEmpty) {
+      print('No users registered.');
+      return;
+    }
+    print('\nUsers:');
+    for (final user in userService.users) {
+      print('- ${user.id}: ${user.name} (${user.email})');
+    }
+  }
+
+  
+  void _listProducts() {
+    final response = productService.getallProducts();
+    if (!response.isSuccess) {
+      _printResponse(response);
+      return;
+    }
+
+    final products = response.data ?? [];
+    if (products.isEmpty) {
+      print('No products found.');
+      return;
+    }
+
+    print('\nProducts:');
+    for (final product in products) {
+      final categoryName = product.category.name;
+      print(
+        '- ${product.id}: ${product.title} (\$${product.price.toStringAsFixed(2)}) '
+        'Category: $categoryName',
+      );
+    }
+  }
+ void _printResponse<T>(AppResponse<T> response) {
+    if (response.isSuccess) {
+      print(response.message);
+      return;
+    }
+     final code = response.error != null ? ' (${response.error})' : '';
+    print('Error$code: ${response.message}');
+}
+
+
+  void _placeOrder() {
+    if (userService.users.isEmpty) {
+      print('Register a user before placing orders.');
+      return;
+    }
+    if (productService.products.isEmpty) {
+      print('No products available. Ask admin to add some.');
+      return;
+    }
+    final userId = prompt('Enter your user id');
+    final user = _findUser(userId);
+    if (user == null) {
+      print('User not found.');
+      return;
+    }
+    final order = Order(id: _nextOrderId++, user: user);
+    print('Enter items (leave product id empty to finish):');
+    while (true) {
+      _listProducts();
+      final productId = prompt('Product id');
+      if (productId.isEmpty) {
+        break;
+      }
+      final product = _findProduct(productId);
+      if (product == null) {
+        print('Product not found.');
+        continue;
+      }
+      final quantityStr = prompt('Quantity');
+      final quantity = int.tryParse(quantityStr);
+      if (quantity == null || quantity <= 0) {
+        print('Quantity must be a positive integer.');
+        continue;
+      }
+      final existing = _findOrderItem(order, product.id);
+      if (existing != null) {
+        existing.quantity += quantity;
+        orderItemsService.updateOrderItemQuantity(
+          existing.product.id,
+          order.id,
+          existing.quantity,
+        );
+        print('Updated ${product.title} quantity to ${existing.quantity}.');
+      } else {
+        final item = Orderitem(
+          id: '${order.id}-${product.id}',
+          product: product,
+          quantity: quantity,
+          order: order,
+        );
+        order.items.add(item);
+        orderItemsService.addOrderItem(item);
+        print('Added ${product.title} x$quantity to order.');
+      }
+    }
+    if (order.items.isEmpty) {
+      print('Order cancelled (no items).');
+      _nextOrderId--;
+      return;
+    }
+    orderService.addOrder(order);
+    print(
+      'Order ${order.id} placed. Total: \$${order.total.toStringAsFixed(2)}',
+    );
+  }
+  
+ 
+  void _viewUserOrders() {
+    if (orderService.orders.isEmpty) {
+      print('No orders placed yet.');
+      return;
+    }
+    final userId = prompt('Enter your user id');
+    final orders = orderService.orders
+        .where((order) => order.user?.id == userId)
+        .toList();
+    if (orders.isEmpty) {
+      print('No orders found for user $userId.');
+      return;
+    }
+    for (final order in orders) {
+      print(
+        '\nOrder ${order.id} on ${order.orderDate} '
+        '- Delivered: ${order.isDelivered ? 'Yes' : 'No'} '
+        '- Total: \$${order.total.toStringAsFixed(2)}',
+      );
+      for (final item in order.items) {
+        print(
+          '  * ${item.product.title} x${item.quantity} '
+          '(\$${(item.product.price * item.quantity).toStringAsFixed(2)})',
+        );
+      }
+    }
+  }
+   User? _findUser(String userId) {
+    for (final user in userService.users) {
+      if (user.id == userId) {
+        return user;
+      }
+    }
+    return null;
+  }
+   Product? _findProduct(String productId) {
+    for (final product in productService.products) {
+      if (product.id == productId) {
+        return product;
+      }
+    }
+    return null;
+  }
+
+   Orderitem? _findOrderItem(Order order, String productId) {
+    for (final item in order.items) {
+      if (item.product.id == productId) {
+        return item;
+      }
+    }
+    return null;
+  }
+}
+
+
+/* ---- File: User/User.dart ---- */
+
+class User {
+  final String id;
+  final String name;
+  final String email;
+  final String password;
+
+  User({
+    required this.id,
+    required this.name,
+    required this.email,
+    required this.password,
+  });
+
+  @override
+  String toString() {
+    return 'User{id: $id, name: $name, email: $email}';
+  }
+}
+
+
+/* ---- File: User/UserService.dart ---- */
+
+import '../core/app_response.dart';
+import 'User.dart';
+
+class Userservice {
+  // This class is responsible for managing user-related operations.
+  final List<User> users = [];
+
+  AppResponse<User> addUser(User user) {
+    final exists = users.any((element) => element.id == user.id);
+    if (exists) {
+      return AppResponse.failure(
+        'User with id ${user.id} already exists.',
+        code: ErrorCode.alreadyExists,
+      );
+    }
+
+    final emailExists =
+        users.any((element) => element.email.toLowerCase() == user.email.toLowerCase());
+    if (emailExists) {
+      return AppResponse.failure(
+        'Email ${user.email} already registered.',
+        code: ErrorCode.conflict,
+      );
+    }
+
+    users.add(user);
+    return AppResponse.success(
+      user,
+      message: 'User ${user.name} registered.',
+    );
+  }
+
+  AppResponse<List<User>> getallUsers() {
+    return AppResponse.success(
+      List<User>.unmodifiable(users),
+      message: 'Fetched ${users.length} users.',
+    );
+  }
+
+  AppResponse<User> deleteUser(String userId) {
+    final index = users.indexWhere((user) => user.id == userId);
+    if (index == -1) {
+      return AppResponse.failure(
+        'User with id $userId not found.',
+        code: ErrorCode.notFound,
+      );
+    }
+
+    final removed = users.removeAt(index);
+    return AppResponse.success(
+      removed,
+      message: 'User ${removed.name} removed.',
+    );
+  }
+
+  Future<AppResponse<User>> getUserDetails(String userId) async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    User? user;
+    for (final element in users) {
+      if (element.id == userId) {
+        user = element;
+        break;
+      }
+    }
+
+    if (user == null) {
+      return AppResponse.failure(
+        'User with id $userId not found.',
+        code: ErrorCode.notFound,
+      );
+    }
+
+    return AppResponse.success(user, message: 'User details loaded.');
+  }
+
+  // Example method to update user information
+  Future<AppResponse<User>> updateUser(
+    String userId,
+    Map<String, dynamic> userData,
+  ) async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    final index = users.indexWhere((user) => user.id == userId);
+    if (index == -1) {
+      return AppResponse.failure(
+        'User with id $userId not found.',
+        code: ErrorCode.notFound,
+      );
+    }
+
+    final current = users[index];
+    final updated = User(
+      id: current.id,
+      name: (userData['name'] as String?) ?? current.name,
+      email: (userData['email'] as String?) ?? current.email,
+      password: (userData['password'] as String?) ?? current.password,
+    );
+
+    users[index] = updated;
+    return AppResponse.success(
+      updated,
+      message: 'User ${updated.name} updated.',
+    );
+  }
+}
+
+

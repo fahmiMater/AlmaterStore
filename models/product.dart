@@ -1,7 +1,7 @@
-import '../Category/Category.dart';
+import './Category.dart';
 
 class Product {
-  final String id;
+  final int id;
   final String title;
   final String description;
   final double price;

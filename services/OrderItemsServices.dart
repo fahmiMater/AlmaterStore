@@ -1,10 +1,14 @@
 import '../core/app_response.dart';
-import 'Order.dart';
+import '../models/Order.dart';
 
 
 class OrderItemsService {
   final List<Orderitem> _orderItems = [];
-
+static final OrderItemsService _instance = OrderItemsService._internal();
+  OrderItemsService._internal();
+  factory OrderItemsService() {
+    return _instance;
+  }
   /// Add an item: if the same (productId, orderId) exists, increase its quantity,
   /// otherwise append a new item.
   AppResponse<Orderitem> addOrderItem(Orderitem item) {

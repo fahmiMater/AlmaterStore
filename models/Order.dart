@@ -1,5 +1,5 @@
-import '../Product/product.dart';
-import '../User/User.dart';
+import './product.dart';
+import './User.dart';
 
 class Order {
   final int id;

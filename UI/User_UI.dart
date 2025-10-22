@@ -1,31 +1,23 @@
-import '../Order/Order.dart';
-import '../User/User.dart';
+import '../models/product.dart';
+import '../models/User.dart';
+
 import 'UI_Consol.dart';
-
-
-import '../Category/CategoryService.dart';
-import '../Order/OrderItemsServices.dart';
-import '../Order/OrderServices.dart';
-import '../Product/ProductService.dart';
-import '../Product/product.dart';
-import '../User/UserService.dart';
-
 import '../core/app_response.dart';
+import '../services/CategoryService.dart';
+import '../services/ProductService.dart'; 
+import '../services/UserService.dart';
+import '../services/OrderServices.dart';
 
-class UserUi extends UiConsole{
- 
-
-    
+class UserUi extends UiConsole {
   final Categoryservice categoryService = Categoryservice();
   final Productservice productService = Productservice();
   final Userservice userService = Userservice();
-  final Orderservices orderService = Orderservices();
-  final OrderItemsService orderItemsService = OrderItemsService();
+  final Orderservice orderService = Orderservice();
 
   int _nextOrderId = 1;
 
-  printMenu() {
-    
+  @override
+  void printMenu() {
     while (true) {
       print('\nUser Menu:');
       print('1) Register');
@@ -58,40 +50,55 @@ class UserUi extends UiConsole{
       }
     }
   }
-   void _registerUser() {
+
+  void _registerUser() {
     final id = prompt('User id');
     if (id.isEmpty) {
       print('Id cannot be empty.');
       return;
     }
-    final exists = userService.users.any((u) => u.id == id);
-    if (exists) {
-      print('User with id $id already exists.');
-      return;
+
+    final existing = userService.getAllUsers();
+    if (existing.isSuccess) {
+      final found = (existing.data ?? []).any((u) => u.id == id);
+      if (found) {
+        print('User with id $id already exists.');
+        return;
+      }
     }
+
     final name = prompt('Name');
     final email = prompt('Email');
     final password = prompt('Password');
-    userService.addUser(
-      User(id: id, name: name, email: email, password: password),
+
+    final res = userService.addUser(
+      id: id,
+      name: name,
+      email: email,
+      password: password,
     );
-    print('User $name registered.');
+    _printResponse(res);
   }
-  
+
   void _listUsers() {
-    if (userService.users.isEmpty) {
+    final res = userService.getAllUsers();
+    if (!res.isSuccess) {
+      _printResponse(res);
+      return;
+    }
+    final users = res.data ?? [];
+    if (users.isEmpty) {
       print('No users registered.');
       return;
     }
     print('\nUsers:');
-    for (final user in userService.users) {
+    for (final user in users) {
       print('- ${user.id}: ${user.name} (${user.email})');
     }
   }
 
-  
   void _listProducts() {
-    final response = productService.getallProducts();
+    final response = productService.getAllProducts();
     if (!response.isSuccess) {
       _printResponse(response);
       return;
@@ -104,104 +111,117 @@ class UserUi extends UiConsole{
     }
 
     print('\nProducts:');
-    for (final product in products) {
-      final categoryName = product.category.name;
-      print(
-        '- ${product.id}: ${product.title} (\$${product.price.toStringAsFixed(2)}) '
-        'Category: $categoryName',
-      );
+    for (final p in products) {
+      final categoryName = (() {
+        try { return p.category.name; } catch (_) { return '(no category)'; }
+      })();
+      print('- ${p.id}: ${p.title} (\$${p.price.toStringAsFixed(2)}) Category: $categoryName');
     }
   }
- void _printResponse<T>(AppResponse<T> response) {
-    if (response.isSuccess) {
-      print(response.message);
-      return;
-    }
-     final code = response.error != null ? ' (${response.error})' : '';
-    print('Error$code: ${response.message}');
-}
-
 
   void _placeOrder() {
-    if (userService.users.isEmpty) {
+    final usersRes = userService.getAllUsers();
+    if (!usersRes.isSuccess || (usersRes.data ?? []).isEmpty) {
       print('Register a user before placing orders.');
       return;
     }
-    if (productService.products.isEmpty) {
+    final productsRes = productService.getAllProducts();
+    if (!productsRes.isSuccess || (productsRes.data ?? []).isEmpty) {
       print('No products available. Ask admin to add some.');
       return;
     }
+
     final userId = prompt('Enter your user id');
-    final user = _findUser(userId);
-    if (user == null) {
+    final user = (usersRes.data ?? []).firstWhere(
+      (u) => u.id == userId,
+      orElse: () => User(id: '', name: '', email: '', password: ''),
+    );
+    if (user.id.isEmpty) {
       print('User not found.');
       return;
     }
-    final order = Order(id: _nextOrderId++, user: user);
-    print('Enter items (leave product id empty to finish):');
-    while (true) {
-      _listProducts();
-      final productId = prompt('Product id');
-      if (productId.isEmpty) {
-        break;
-      }
-      final product = _findProduct(productId);
-      if (product == null) {
-        print('Product not found.');
-        continue;
-      }
-      final quantityStr = prompt('Quantity');
-      final quantity = int.tryParse(quantityStr);
-      if (quantity == null || quantity <= 0) {
-        print('Quantity must be a positive integer.');
-        continue;
-      }
-      final existing = _findOrderItem(order, product.id);
-      if (existing != null) {
-        existing.quantity += quantity;
-        orderItemsService.updateOrderItemQuantity(
-          existing.product.id,
-          order.id,
-          existing.quantity,
-        );
-        print('Updated ${product.title} quantity to ${existing.quantity}.');
-      } else {
-        final item = Orderitem(
-          id: '${order.id}-${product.id}',
-          product: product,
-          quantity: quantity,
-          order: order,
-        );
-        order.items.add(item);
-        orderItemsService.addOrderItem(item);
-        print('Added ${product.title} x$quantity to order.');
-      }
-    }
-    if (order.items.isEmpty) {
-      print('Order cancelled (no items).');
+
+    final createRes = orderService.createOrder(id: _nextOrderId++, user: user);
+    if (!createRes.isSuccess || createRes.data == null) {
+      _printResponse(createRes);
       _nextOrderId--;
       return;
     }
-    orderService.addOrder(order);
-    print(
-      'Order ${order.id} placed. Total: \$${order.total.toStringAsFixed(2)}',
-    );
+    final order = createRes.data!;
+
+    print('Enter items (leave product id empty to finish):');
+    while (true) {
+      _listProducts();
+      final pidStr = prompt('Product id');
+      if (pidStr.isEmpty) break;
+
+      final productId = int.tryParse(pidStr);
+      if (productId == null) {
+        print('Product id must be a number.');
+        continue;
+      }
+
+      final latestProducts = (productService.getAllProducts().data) ?? [];
+      final p = latestProducts.firstWhere(
+        (x) => x.id == productId,
+        orElse: () => Product(id: -1, title: '', description: '', price: 0),
+      );
+      if (p.id != productId) {
+        print('Product not found.');
+        continue;
+      }
+
+      final quantityStr = prompt('Quantity');
+      final qty = int.tryParse(quantityStr);
+      if (qty == null || qty <= 0) {
+        print('Quantity must be a positive integer.');
+        continue;
+      }
+
+      final addItemRes = orderService.addItem(
+        orderId: order.id,
+        itemId: '${order.id}-${p.id}',
+        product: p,
+        quantity: qty,
+      );
+      if (!addItemRes.isSuccess) {
+        _printResponse(addItemRes);
+      } else {
+        print('Added ${p.title} x$qty to order.');
+      }
+    }
+
+    final details = orderService.getOrderDetails(order.id);
+    details.then((dr) {
+      if (dr.isSuccess && dr.data != null && dr.data!.items.isEmpty) {
+        orderService.deleteOrder(order.id);
+        print('Order cancelled (no items).');
+        _nextOrderId--;
+      } else {
+        print('Order ${order.id} placed. Total: \$${order.total.toStringAsFixed(2)}');
+      }
+    });
   }
-  
- 
+
   void _viewUserOrders() {
-    if (orderService.orders.isEmpty) {
+    final ordersRes = orderService.getAllOrders();
+    if (!ordersRes.isSuccess) {
+      _printResponse(ordersRes);
+      return;
+    }
+    final all = ordersRes.data ?? [];
+    if (all.isEmpty) {
       print('No orders placed yet.');
       return;
     }
+
     final userId = prompt('Enter your user id');
-    final orders = orderService.orders
-        .where((order) => order.user?.id == userId)
-        .toList();
+    final orders = all.where((o) => o.user?.id == userId).toList();
     if (orders.isEmpty) {
       print('No orders found for user $userId.');
       return;
     }
+
     for (final order in orders) {
       print(
         '\nOrder ${order.id} on ${order.orderDate} '
@@ -209,36 +229,18 @@ class UserUi extends UiConsole{
         '- Total: \$${order.total.toStringAsFixed(2)}',
       );
       for (final item in order.items) {
-        print(
-          '  * ${item.product.title} x${item.quantity} '
-          '(\$${(item.product.price * item.quantity).toStringAsFixed(2)})',
-        );
+        print('  * ${item.product.title} x${item.quantity} '
+              '(\$${(item.product.price * item.quantity).toStringAsFixed(2)})');
       }
     }
-  }
-   User? _findUser(String userId) {
-    for (final user in userService.users) {
-      if (user.id == userId) {
-        return user;
-      }
-    }
-    return null;
-  }
-   Product? _findProduct(String productId) {
-    for (final product in productService.products) {
-      if (product.id == productId) {
-        return product;
-      }
-    }
-    return null;
   }
 
-   Orderitem? _findOrderItem(Order order, String productId) {
-    for (final item in order.items) {
-      if (item.product.id == productId) {
-        return item;
-      }
+  void _printResponse<T>(AppResponse<T> response) {
+    if (response.isSuccess) {
+      print(response.message);
+      return;
     }
-    return null;
+    final code = response.error != null ? ' (${response.error})' : '';
+    print('Error$code: ${response.message}');
   }
 }

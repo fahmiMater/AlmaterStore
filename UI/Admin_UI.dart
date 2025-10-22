@@ -1,26 +1,21 @@
 
+import '../models/Category.dart';
+import '../services/CategoryService.dart';
+import '../services/ProductService.dart';
+import '../services/UserService.dart';
+import '../services/OrderServices.dart';
 
-import '../Category/Category.dart';
-import '../Category/CategoryService.dart';
-import '../Order/OrderItemsServices.dart';
-import '../Order/OrderServices.dart';
-import '../Product/ProductService.dart';
-import '../Product/product.dart';
-import '../User/UserService.dart';
 import 'UI_Consol.dart';
 import '../core/app_response.dart';
 
-class AdminUi extends UiConsole{
-
-  
+class AdminUi extends UiConsole {
   final Categoryservice categoryService = Categoryservice();
   final Productservice productService = Productservice();
   final Userservice userService = Userservice();
-  final Orderservices orderService = Orderservices();
-  final OrderItemsService orderItemsService = OrderItemsService();
+  final Orderservice orderService = Orderservice();
+
   @override
-  printMenu() {
-   
+  void printMenu() {
     while (true) {
       print('\nAdmin Menu:');
       print('1) Add category');
@@ -32,7 +27,6 @@ class AdminUi extends UiConsole{
       final choice = prompt('Enter choice');
       switch (choice) {
         case '1':
-       
           _addCategory();
           break;
         case '2':
@@ -54,6 +48,7 @@ class AdminUi extends UiConsole{
       }
     }
   }
+
   void _addCategory() {
     final id = prompt('Category id');
     final idValue = int.tryParse(id);
@@ -71,6 +66,7 @@ class AdminUi extends UiConsole{
     final response = categoryService.addCategory(idValue, name);
     _printResponse(response);
   }
+
   void _listCategories() {
     final response = categoryService.getallCategories();
     if (!response.isSuccess) {
@@ -86,9 +82,7 @@ class AdminUi extends UiConsole{
 
     print('\nCategories:');
     for (final category in categories) {
-      print(
-        '- ${category.id}: ${category.name} (Products: ${category.products.length})',
-      );
+      print('- ${category.id}: ${category.name} (Products: ${category.products.length})');
     }
   }
 
@@ -104,18 +98,18 @@ class AdminUi extends UiConsole{
       return;
     }
 
-    final id = prompt('Product id');
-    if (id.isEmpty) {
-      print('Id cannot be empty.');
+    final idStr = prompt('Product id');
+    final productId = int.tryParse(idStr);
+    if (productId == null) {
+      print('Id must be a number.');
       return;
     }
 
-    final productsResponse = productService.getallProducts();
+    final productsResponse = productService.getAllProducts();
     if (productsResponse.isSuccess) {
-      final exists =
-          (productsResponse.data ?? []).any((product) => product.id == id);
+      final exists = (productsResponse.data ?? []).any((p) => p.id == productId);
       if (exists) {
-        print('Product with id $id already exists.');
+        print('Product with id $productId already exists.');
         return;
       }
     }
@@ -144,26 +138,23 @@ class AdminUi extends UiConsole{
         break;
       }
     }
-
     if (category == null) {
       print('Category not found.');
       return;
     }
 
-    final product = Product(
-      id: id,
+    final response = productService.addProduct(
+      id: productId,
       title: title,
       description: description,
       price: price,
+      categoryId: categoryIdValue,
     );
-    product.category = category;
-
-    final response = productService.addProduct(product);
     _printResponse(response);
   }
 
   void _listProducts() {
-    final response = productService.getallProducts();
+    final response = productService.getAllProducts();
     if (!response.isSuccess) {
       _printResponse(response);
       return;
@@ -176,23 +167,23 @@ class AdminUi extends UiConsole{
     }
 
     print('\nProducts:');
-    for (final product in products) {
-      final categoryName = product.category.name;
-      print(
-        '- ${product.id}: ${product.title} (\$${product.price.toStringAsFixed(2)}) '
-        'Category: $categoryName',
-      );
+    for (final p in products) {
+      final categoryName = (() {
+        try { return p.category.name; } catch (_) { return '(no category)'; }
+      })();
+      print('- ${p.id}: ${p.title} (\$${p.price.toStringAsFixed(2)}) Category: $categoryName');
     }
   }
 
   void _deleteProduct() {
-    final id = prompt('Product id to delete');
-    if (id.isEmpty) {
-      print('Id cannot be empty.');
+    final idStr = prompt('Product id to delete');
+    final productId = int.tryParse(idStr);
+    if (productId == null) {
+      print('Id must be a number.');
       return;
     }
 
-    final response = productService.deleteProduct(id);
+    final response = productService.deleteProduct(productId);
     _printResponse(response);
   }
 
@@ -201,7 +192,6 @@ class AdminUi extends UiConsole{
       print(response.message);
       return;
     }
-
     final code = response.error != null ? ' (${response.error})' : '';
     print('Error$code: ${response.message}');
   }

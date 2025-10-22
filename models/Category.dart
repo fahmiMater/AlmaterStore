@@ -1,4 +1,4 @@
-import '../Product/product.dart';
+import './product.dart';
 
 class Category{
   final int id;
