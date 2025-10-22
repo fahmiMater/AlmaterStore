@@ -4,8 +4,10 @@ import 'UI/Admin_UI.dart';
 import 'UI/UI_Consol.dart';
 import 'UI/User_UI.dart';
 import 'UI/Delivary_UI.dart';
+import 'core/seeds.dart';
 
 void main() {
+   SeedData.bootstrap();
   final app = ConsoleApp();
   app.printMenu();
 }
